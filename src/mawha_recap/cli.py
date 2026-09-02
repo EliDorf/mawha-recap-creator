@@ -157,6 +157,7 @@ def run(
     stub: Annotated[bool, typer.Option(help="Use offline stub providers (no API calls)")] = False,
     reallocate: Annotated[bool, typer.Option(help="Recompute the per-chapter word budget")] = False,
     pin_context: Annotated[bool, typer.Option(help="Ignore upstream story-context changes")] = False,
+    refresh_stale: Annotated[bool, typer.Option(help="Re-run stages whose story context changed upstream")] = False,
     no_gate: Annotated[bool, typer.Option(help="Skip the script approval gate for this run")] = False,
 ) -> None:
     """Run pipeline stages for the selected chapters."""
@@ -164,7 +165,12 @@ def run(
 
     stages = _stage_numbers(stage, all_)
     ctx = make_context(
-        project_dir, console, force=force, stub=stub, reallocate=reallocate, pin_context=pin_context, skip_gate=no_gate
+        project_dir, console, force=force,
+        stub=stub,
+        reallocate=reallocate,
+        pin_context=pin_context,
+        refresh_stale=refresh_stale,
+        skip_gate=no_gate,
     )
     try:
         run_pipeline(ctx, stages, only=chapter)

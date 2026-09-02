@@ -24,6 +24,7 @@ class Context:
     stub: bool = False
     reallocate: bool = False
     pin_context: bool = False
+    refresh_stale: bool = False
     skip_gate: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
     _llm: Any = None
@@ -81,8 +82,6 @@ def resolve_chapters(ctx: Context, only: list[str] | None) -> list[str]:
 
 
 def run_pipeline(ctx: Context, stage_numbers: list[int], only: list[str] | None = None) -> None:
-    from .stages import assemble, beats, ingest, render, script, segment, tts
-
     all_selected = resolve_chapters(ctx, None)
     selected = resolve_chapters(ctx, only)
     ctx.project.ensure_fonts()
@@ -91,26 +90,40 @@ def run_pipeline(ctx: Context, stage_numbers: list[int], only: list[str] | None 
         for stage_id in STAGE_NUMBERS[n]:
             ctx.log(f"[bold cyan]== stage {stage_id}[/]")
             if stage_id == "00_ingest":
+                from .stages import ingest
+
                 for ch in selected:
                     _report(ctx, ch, stage_id, ingest.run_chapter(ctx, ch))
             elif stage_id == "01_panels":
+                from .stages import segment
+
                 for ch in selected:
                     _report(ctx, ch, stage_id, segment.run_chapter(ctx, ch))
             elif stage_id == "02_beats":
+                from .stages import beats
+
                 for ch in selected:
                     _report(ctx, ch, stage_id, beats.run_chapter(ctx, ch, all_chapters=all_selected))
             elif stage_id == "02_script":
+                from .stages import script
+
                 script.allocate_budget(ctx, all_selected)
                 for ch in selected:
                     _report(ctx, ch, stage_id, script.run_chapter(ctx, ch, all_chapters=all_selected))
                 script.write_review(ctx, all_selected)
             elif stage_id == "03_tts":
+                from .stages import tts
+
                 for ch in selected:
                     _report(ctx, ch, stage_id, tts.run_chapter(ctx, ch))
             elif stage_id == "04_render":
+                from .stages import render
+
                 for ch in selected:
                     _report(ctx, ch, stage_id, render.run_chapter(ctx, ch))
             elif stage_id == "05_assemble":
+                from .stages import assemble
+
                 _report(ctx, "video", stage_id, assemble.run(ctx, all_selected))
     ctx.manifest.save()
 
