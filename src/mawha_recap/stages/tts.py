@@ -122,7 +122,7 @@ def run_chapter(ctx: Context, ch: str) -> str:
         for group in groups:
             texts = [line.tts_text or line.text for line in group]
             seg_texts.append((build_segment_text(texts)[0], texts))
-        for gi, (group, (text, texts)) in enumerate(zip(groups, seg_texts, strict=True), start=1):
+        for gi, (_group, (text, texts)) in enumerate(zip(groups, seg_texts, strict=True), start=1):
             key = short_hash(voice_key + "\n" + text, 12)
             seg_id = f"seg_{gi:03d}"
             align_path = tdir / f"{seg_id}-{key}.align.json"

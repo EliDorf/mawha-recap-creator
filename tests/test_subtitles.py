@@ -1,5 +1,13 @@
 from mawha_recap.config import SubtitleConfig
-from mawha_recap.media.subtitles import ass_time, build_ass, build_srt, cues_for_line, srt_time, timeline_cues, wrap_lines
+from mawha_recap.media.subtitles import (
+    ass_time,
+    build_ass,
+    build_srt,
+    cues_for_line,
+    srt_time,
+    timeline_cues,
+    wrap_lines,
+)
 from mawha_recap.models import Timeline, TimelineLine, Word
 
 
@@ -26,7 +34,7 @@ def test_long_line_split_into_cues_by_word_times():
     cues = cues_for_line(line, cfg)
     assert len(cues) >= 3
     assert cues[0][0] == 1.0 and cues[-1][1] >= 13.0
-    assert all(a[1] <= b[0] + 1e-9 for a, b in zip(cues, cues[1:]))
+    assert all(a[1] <= b[0] + 1e-9 for a, b in zip(cues, cues[1:], strict=False))
     assert " ".join(c[2] for c in cues) == line.text
 
 

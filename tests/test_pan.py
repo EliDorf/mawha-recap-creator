@@ -1,4 +1,11 @@
-from mawha_recap.media.pan import ClipSpec, allocate_durations, clip_filter, crop_y_expr, frames_for, xfade_offsets
+from mawha_recap.media.pan import (
+    ClipSpec,
+    allocate_durations,
+    clip_filter,
+    crop_y_expr,
+    frames_for,
+    xfade_offsets,
+)
 
 
 def test_allocate_durations_weights_and_minimums():

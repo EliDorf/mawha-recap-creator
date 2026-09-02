@@ -15,8 +15,8 @@ from ..manifest import fingerprint, run_stage, sha256_file, sha256_text
 from ..media import ffmpeg as ff
 from ..media.subtitles import build_srt
 from ..models import MetaOut, Panel, Timeline
-from ..prompts import load_prompt, render
 from ..project import PACKAGE_FONTS, TITLE_FONT_FILE
+from ..prompts import load_prompt, render
 from ..providers.claude import cache_block, usage_usd
 from .beats import VARIANT_LABEL, load_beats
 from .segment import load_panels

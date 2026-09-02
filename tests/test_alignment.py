@@ -1,4 +1,11 @@
-from mawha_recap.text.alignment import CharAlignment, build_segment_text, line_timing, map_alignment, strip_tags, word_spans
+from mawha_recap.text.alignment import (
+    CharAlignment,
+    build_segment_text,
+    line_timing,
+    map_alignment,
+    strip_tags,
+    word_spans,
+)
 
 
 def test_strip_tags_and_spans():
@@ -16,7 +23,7 @@ def _uniform(text: str, per: float = 0.1) -> CharAlignment:
 def test_map_alignment_exact_and_fuzzy():
     text = "ab cd"
     s, e = map_alignment(text, _uniform(text))
-    assert all(abs(a - b) < 1e-9 for a, b in zip(s, [0.0, 0.1, 0.2, 0.3, 0.4])) and abs(e[-1] - 0.5) < 1e-9
+    assert all(abs(a - b) < 1e-9 for a, b in zip(s, [0.0, 0.1, 0.2, 0.3, 0.4], strict=True)) and abs(e[-1] - 0.5) < 1e-9
     # aligner dropped a character and normalised nothing else
     al = CharAlignment(list("abcd"), [0, 1, 2, 3], [1, 2, 3, 4])
     s, e = map_alignment("ab cd", al)
@@ -30,7 +37,7 @@ def test_line_timing_words_and_interpolation():
     assert [w.w for w in words] == ["Alpha", "beta", "gamma."]
     assert words[0].s == 0.0 and abs(words[0].e - 0.5) < 1e-6
     assert s == words[0].s and e == words[-1].e
-    assert all(w1.s <= w2.s for w1, w2 in zip(words, words[1:]))
+    assert all(w1.s <= w2.s for w1, w2 in zip(words, words[1:], strict=False))
     # second line starts after the separator
     s2, _, w2 = line_timing(text, spans[1], *map_alignment(text, al), seg_end=len(text) * 0.1)
     assert s2 > e and w2[0].w == "Delta."

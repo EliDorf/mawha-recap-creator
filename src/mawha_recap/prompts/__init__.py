@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import re
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 PROMPT_DIR = Path(__file__).resolve().parent
 _PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 
 
-@lru_cache(maxsize=None)
+@cache
 def load_prompt(name: str) -> str:
     return (PROMPT_DIR / f"{name}.md").read_text(encoding="utf-8")
 

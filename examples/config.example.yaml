@@ -1,0 +1,60 @@
+# Copy next to your input/ folder as config.yaml. Only `series` and `slug` are required;
+# everything else falls back to the variant preset (recap | sleep).
+series: "Solo Leveling"
+slug: solo-leveling-ch012-045-sleep       # [a-z0-9_-] only; it becomes the output file name
+variant: sleep                              # recap: 150 wpm, -16 LUFS, brisk pans | sleep: 130 wpm, -20 LUFS, slow pans
+chapters: "ch012-ch045"                     # null = every chapter in input/, a range string, or [ch012, ch013]
+target_runtime_min: 90
+source_language: en                         # language of the text inside the panels
+
+voice:
+  id: "YOUR_ELEVENLABS_VOICE_ID"
+  model: eleven_v3                          # eleven_multilingual_v2 supports `speed`; v3 does not
+  settings: {stability: 0.5}
+  output_format: mp3_44100_128
+
+llm:
+  beats_model: claude-opus-5
+  script_model: claude-opus-5
+  meta_model: claude-opus-5
+  fallbacks: true                           # server-side refusal fallback (see README)
+  effort: null                              # low | medium | high | xhigh | max
+
+vision: {max_w: 1000, max_h: 2000, jpeg_quality: 85}
+
+segment: {uniformity: 0.985, tolerance: 18, min_gutter_px: 12, min_panel_h: 200, max_panel_h: 3200}
+
+style:
+  voice_guide: |
+    Warm, unhurried narrator who tells the story like a friend recounting it late at night.
+    Present tense. Plain words. Name characters. No hype, no jokes at the story's expense.
+  tone_notes: ""
+  # preset-controlled (override only if you want): wpm, line_gap_s, loudness_lufs, min_panel_s, crossfade_s
+  framing: fill                             # fill = crop to 16:9 and pan | blur = panel on a blurred backdrop
+  subtitles: {burn: true, max_chars_per_line: 42, font_size: 44}
+
+tts:
+  max_chars: 2500                           # per request; also capped by the model's own limit
+  tempo: 1.0                                # 0.93 slows the voice a little (v3 has no speed setting)
+  chapter_tail_s: 1.5
+
+render:
+  width: 1920
+  height: 1080
+  fps: 30
+  oversample: 2                             # 2 = sub-pixel-smooth pans; 3 for the slowest sleep pans
+  encoder: auto                             # auto | libx264 | h264_videotoolbox | h264_nvenc | h264_qsv | h264_amf
+  crf: 20
+  chapter_cards: true
+  title_card_s: 2.0
+  workers: 4
+
+package:
+  title_template: "{series} Chapters {first}-{last} | Sleep Recap"
+  chapter_title_template: "Chapter {n}"
+  tags: [manhwa, webtoon, recap, sleep]
+  thumbnail: {lockup: "{series}\nCh. {first}-{last}"}
+
+music: {tracks: [], gain_db: -18}           # drop a file path in tracks to loop a bed under the narration
+
+gate: {require_approval: true}

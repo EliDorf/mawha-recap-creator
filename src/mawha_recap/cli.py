@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -29,7 +29,7 @@ def _version_cb(value: bool) -> None:
 @app.callback()
 def main(
     version: Annotated[
-        Optional[bool], typer.Option("--version", callback=_version_cb, is_eager=True, help="Show version")
+        bool | None, typer.Option("--version", callback=_version_cb, is_eager=True, help="Show version")
     ] = None,
 ) -> None:
     pass
@@ -89,7 +89,7 @@ story_so_far: ""   # optional carry-over summary from earlier videos
 def init(
     project_dir: Annotated[Path, typer.Argument(help="Project directory to create")],
     series: Annotated[str, typer.Option(help="Series display name")] = "My Series",
-    slug: Annotated[Optional[str], typer.Option(help="Output slug [a-z0-9_-]")] = None,
+    slug: Annotated[str | None, typer.Option(help="Output slug [a-z0-9_-]")] = None,
     variant: Annotated[str, typer.Option(help="recap | sleep")] = "sleep",
     runtime: Annotated[float, typer.Option(help="Target runtime in minutes")] = 90,
     voice: Annotated[str, typer.Option(help="ElevenLabs voice id")] = "",
@@ -118,8 +118,25 @@ def init(
 
 
 @app.command()
+def demo(
+    project_dir: Annotated[Path, typer.Argument(help="Directory to create the demo project in")],
+    chapters: Annotated[int, typer.Option(help="Number of synthetic chapters")] = 3,
+    variant: Annotated[str, typer.Option(help="recap | sleep")] = "sleep",
+) -> None:
+    """Create a small synthetic project so the whole pipeline can be tried offline with --stub."""
+    from .synthetic import write_demo_project
+
+    root = write_demo_project(project_dir.resolve(), chapters=chapters, variant=variant)
+    console.print(f"[green]demo project written to[/] {root}")
+    console.print("try:")
+    console.print(f"  recap run {root} --stage 0 --stub && recap run {root} --stage 1 --stub && recap run {root} --stage 2 --stub")
+    console.print(f"  open {root / 'review' / 'review.html'}   # skim the script")
+    console.print(f"  recap approve {root} && recap run {root} --all --stub")
+
+
+@app.command()
 def doctor(
-    project_dir: Annotated[Optional[Path], typer.Argument(help="Optional project to check")] = None,
+    project_dir: Annotated[Path | None, typer.Argument(help="Optional project to check")] = None,
     probe_tts: Annotated[bool, typer.Option(help="Make one tiny ElevenLabs request to find the timing path")] = False,
 ) -> None:
     """Check ffmpeg, filters, encoders, fonts and API keys."""
@@ -137,7 +154,7 @@ def doctor(
     raise typer.Exit(code=0 if report.ok else 1)
 
 
-def _stage_numbers(stage: Optional[int], all_: bool) -> list[int]:
+def _stage_numbers(stage: int | None, all_: bool) -> list[int]:
     if all_:
         return [0, 1, 2, 3, 4, 5]
     if stage is None:
@@ -150,9 +167,9 @@ def _stage_numbers(stage: Optional[int], all_: bool) -> list[int]:
 @app.command()
 def run(
     project_dir: Annotated[Path, typer.Argument(help="Project directory")],
-    stage: Annotated[Optional[int], typer.Option("--stage", "-s", help="Run one stage (0-5)")] = None,
+    stage: Annotated[int | None, typer.Option("--stage", "-s", help="Run one stage (0-5)")] = None,
     all_: Annotated[bool, typer.Option("--all", help="Run every stage in order")] = False,
-    chapter: Annotated[Optional[list[str]], typer.Option("--chapter", "-c", help="Limit to chapter(s)")] = None,
+    chapter: Annotated[list[str] | None, typer.Option("--chapter", "-c", help="Limit to chapter(s)")] = None,
     force: Annotated[bool, typer.Option(help="Re-run even if the manifest says it is up to date")] = False,
     stub: Annotated[bool, typer.Option(help="Use offline stub providers (no API calls)")] = False,
     reallocate: Annotated[bool, typer.Option(help="Recompute the per-chapter word budget")] = False,
@@ -182,7 +199,7 @@ def run(
 @app.command()
 def approve(
     project_dir: Annotated[Path, typer.Argument(help="Project directory")],
-    chapter: Annotated[Optional[list[str]], typer.Option("--chapter", "-c", help="Limit to chapter(s)")] = None,
+    chapter: Annotated[list[str] | None, typer.Option("--chapter", "-c", help="Limit to chapter(s)")] = None,
 ) -> None:
     """Approve the current script.yaml files (hashes them into the manifest) so TTS may run."""
     from .pipeline import make_context, resolve_chapters

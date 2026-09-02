@@ -1,0 +1,14 @@
+# Lives one directory above the video projects of a series (projects/<series>/series.yaml).
+name: "Solo Leveling"
+characters:
+  - name: Sung Jin-Woo
+    aliases: [Jinwoo, the Shadow Monarch]
+    notes: protagonist; E-rank hunter who became the Player
+  - name: Cha Hae-In
+    aliases: [Hae-In]
+    notes: S-rank hunter of the Hunters Guild
+glossary:
+  Gate: portal that leads into a dungeon
+  Rank: hunter strength classification, E (lowest) to S (highest)
+notes: "Names use the official English localisation."
+story_so_far: ""   # optional carry-over summary from earlier videos

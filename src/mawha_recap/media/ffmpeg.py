@@ -45,8 +45,7 @@ def run(args: list[str], cwd: Path | None = None, check: bool = True) -> subproc
     proc = subprocess.run(
         args,
         cwd=str(cwd) if cwd else None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
@@ -64,8 +63,7 @@ def run_raw(args: list[str], input_bytes: bytes | None = None, cwd: Path | None 
         args,
         cwd=str(cwd) if cwd else None,
         input=input_bytes,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         stdin=None if input_bytes is not None else subprocess.DEVNULL,
     )
     if proc.returncode != 0:

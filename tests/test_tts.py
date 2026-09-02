@@ -45,7 +45,7 @@ def test_tts_stage_gate_and_timeline(project_factory):
             assert line.end > line.start
             assert line.words and line.words[0].s >= line.start - 1e-6 and line.words[-1].e <= line.end + 1e-6
             prev_end = line.end
-        gaps = [b.start - a.end for a, b in zip(tl.lines, tl.lines[1:])]
+        gaps = [b.start - a.end for a, b in zip(tl.lines, tl.lines[1:], strict=False)]
         assert all(g >= 0.9 - 0.02 for g in gaps)  # sleep preset line gap
         assert tl.duration >= tl.lines[-1].end + 1.5 - 0.01  # chapter tail
         assert abs(float(tl.loudness["output_i"]) - (-20.0)) < 1.5

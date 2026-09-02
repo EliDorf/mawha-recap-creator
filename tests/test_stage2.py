@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from mawha_recap.models import BeatOut, BeatSheet, BeatSheetOut, Beat, ScriptLineOut, ScriptOut
+from mawha_recap.models import Beat, BeatOut, BeatSheet, BeatSheetOut, ScriptLineOut, ScriptOut
 from mawha_recap.pipeline import make_context, run_pipeline
 from mawha_recap.stages.beats import load_beats, normalize_beats
 from mawha_recap.stages.review import approve_chapters, script_hash
@@ -45,11 +45,11 @@ def test_normalize_script_coverage_and_ids():
         ScriptLineOut(beat="b02", panel_ids=[], text="Four.", tts_text=""),
     ])
     lines, warnings = normalize_script(out, sheet, "ch001")
-    assert [l.id for l in lines] == ["ch001_l001", "ch001_l002", "ch001_l003"]
+    assert [line.id for line in lines] == ["ch001_l001", "ch001_l002", "ch001_l003"]
     assert lines[0].panel_ids == ["ch001_p001", "ch001_p002", "ch001_p003"]  # p003 attached to the preceding line
     assert lines[0].text == "One two." and lines[0].tts_text is None
     assert lines[1].beat == "b02" and lines[1].tts_text == "Three... [pause]"
-    all_ids = [pid for l in lines for pid in l.panel_ids]
+    all_ids = [pid for line in lines for pid in line.panel_ids]
     assert set(all_ids) >= {"ch001_p003", "ch001_p004", "ch001_p005"}  # uncovered panels attached
     assert lines[2].panel_ids  # empty line holds on a panel
     assert warnings
@@ -64,7 +64,7 @@ def test_stage2_stub_end_to_end(project_factory):
         panels = [p.id for p in load_panels(ctx.project.panels_json(ch)).panels]
         assert [pid for b in sheet.beats for pid in b.panel_ids] == panels
         script = load_script(ctx.project.script_yaml(ch))
-        assert [pid for l in script.lines for pid in l.panel_ids] == panels
+        assert [pid for line in script.lines for pid in line.panel_ids] == panels
         assert script.budget_words == ctx.manifest.budget["per_chapter"][ch]
         assert script.word_count() > 0
         assert ctx.manifest.stage(ch, "02_beats")["status"] == "ok"
