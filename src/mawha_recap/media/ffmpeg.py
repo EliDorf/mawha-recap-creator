@@ -58,6 +58,22 @@ def run(args: list[str], cwd: Path | None = None, check: bool = True) -> subproc
     return proc
 
 
+def run_raw(args: list[str], input_bytes: bytes | None = None, cwd: Path | None = None) -> bytes:
+    """Run ffmpeg and return raw stdout bytes (for PCM piping)."""
+    proc = subprocess.run(
+        args,
+        cwd=str(cwd) if cwd else None,
+        input=input_bytes,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        stdin=None if input_bytes is not None else subprocess.DEVNULL,
+    )
+    if proc.returncode != 0:
+        tail = "\n".join(proc.stderr.decode("utf-8", "replace").strip().splitlines()[-25:])
+        raise FFmpegError(f"command failed ({proc.returncode}): {' '.join(args[:6])} ...\n{tail}")
+    return proc.stdout
+
+
 def ffmpeg_cmd(*extra: str) -> list[str]:
     return [ffmpeg(), "-y", "-hide_banner", "-nostdin", "-loglevel", "error", *extra]
 
@@ -124,19 +140,33 @@ def duration(path: Path | str, cwd: Path | None = None) -> float:
 HW_ENCODERS = ["h264_videotoolbox", "h264_nvenc", "h264_qsv", "h264_amf"]
 
 
+def _encoder_works(name: str) -> bool:
+    """A build can list a hardware encoder without the hardware being present; try a tiny encode."""
+    args = [
+        ffmpeg(), "-hide_banner", "-nostdin", "-loglevel", "error",
+        "-f", "lavfi", "-i", "color=c=black:s=128x128:r=30:d=0.2",
+        "-frames:v", "3", *encoder_args(name, 20, "fast"), "-f", "null", "-",
+    ]
+    try:
+        return run(args, check=False).returncode == 0
+    except FFmpegError:
+        return False
+
+
+@lru_cache(maxsize=8)
 def pick_encoder(setting: str) -> str:
-    """Resolve the `render.encoder` knob to an encoder name that exists in this ffmpeg build."""
+    """Resolve the `render.encoder` knob to an encoder that exists *and works* in this environment."""
     avail = encoders()
     if setting != "auto":
         if setting not in avail:
             raise FFmpegError(f"encoder {setting!r} not available in this ffmpeg build")
         return setting
     for name in HW_ENCODERS:
-        if name in avail:
+        if name in avail and _encoder_works(name):
             return name
     if "libx264" in avail:
         return "libx264"
-    raise FFmpegError("no H.264 encoder available (need libx264 or a hardware encoder)")
+    raise FFmpegError("no H.264 encoder available (need libx264 or a working hardware encoder)")
 
 
 def encoder_args(encoder: str, crf: int, preset: str) -> list[str]:

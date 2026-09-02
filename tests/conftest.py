@@ -81,7 +81,7 @@ def write_project(root: Path, chapters: dict[str, list[int]], variant: str = "sl
         f"variant: {variant}\n"
         f"target_runtime_min: {runtime}\n"
         "voice: {id: stub-voice}\n"
-        "render: {workers: 2, title_card_s: 1.0}\n",
+        "render: {workers: 2, title_card_s: 1.0, width: 640, height: 360}\n",
         encoding="utf-8",
     )
     for i, (ch, heights) in enumerate(chapters.items()):
