@@ -1,0 +1,42 @@
+[project]
+name = "mawha-recap-creator"
+version = "0.1.0"
+description = "Turn webtoon / manhwa chapter images into narrated recap and sleep videos"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "typer>=0.12",
+  "rich>=13",
+  "pydantic>=2.7",
+  "pyyaml>=6",
+  "numpy>=1.26",
+  "opencv-python-headless>=4.9",
+  "pillow>=10",
+  "anthropic>=1.0",
+  "elevenlabs>=2.0",
+]
+
+[project.scripts]
+recap = "mawha_recap.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mawha_recap"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+.env
+projects/
+examples/demo/work/
+examples/demo/out/
+examples/demo/review/
+examples/demo/manifest.json
+examples/demo/assets/
