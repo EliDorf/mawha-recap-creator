@@ -1,0 +1,32 @@
+series: My Series
+slug: my-series-sleep
+variant: sleep
+target_runtime_min: 90
+channel:
+  tagline: "Manhwa's to fall asleep to"
+voice:
+  id: CwhRBWXzGAHq8TQ4Fs17  # Roger; audition before long generations
+  model: eleven_v3
+  settings: {stability: 0.5}
+opening: {enabled: true, target_words: 40, max_source_chapters: 3, max_panels: 24}
+style:
+  voice_guide: >-
+    Quiet, intimate storytelling for listeners falling asleep.
+    Write for a soft whisper with natural contractions and connected phrasing.
+    No shouting, promotional delivery, or repeated dramatic pauses.
+  wpm: 115
+  line_gap_s: 0.0
+  loudness_lufs: -22
+  pan: {max_px_s: 30, hold_in_s: 0.6, hold_out_s: 0.6}
+  crossfade_s: 0.8
+  framing: blur
+  subtitles: {burn: true, alpha: 0.35}
+tts:
+  delivery: whisper
+  max_chars: 4500
+  segment_on_beat: false
+  line_separator: " "
+  chapter_tail_s: 0.6
+  tempo: 1.0
+render: {chapter_cards: false, encoder: auto}
+gate: {require_approval: true}

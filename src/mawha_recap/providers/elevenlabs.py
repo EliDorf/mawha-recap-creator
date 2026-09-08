@@ -95,9 +95,10 @@ class ElevenLabsTTS:
             common["voice_settings"] = vs
         if voice.language_code:
             common["language_code"] = voice.language_code
-        if prev_text:
+        # Eleven v3 rejects text-context parameters on both synthesis endpoints.
+        if prev_text and voice.model != "eleven_v3":
             common["previous_text"] = prev_text[-600:]
-        if next_text:
+        if next_text and voice.model != "eleven_v3":
             common["next_text"] = next_text[:600]
         out_path.parent.mkdir(parents=True, exist_ok=True)
 

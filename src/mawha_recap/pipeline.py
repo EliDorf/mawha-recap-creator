@@ -110,6 +110,10 @@ def run_pipeline(ctx: Context, stage_numbers: list[int], only: list[str] | None 
                 script.allocate_budget(ctx, all_selected)
                 for ch in selected:
                     _report(ctx, ch, stage_id, script.run_chapter(ctx, ch, all_chapters=all_selected))
+            elif stage_id == "02_opening":
+                from .stages import opening, script
+
+                _report(ctx, "video", stage_id, opening.run(ctx, all_selected))
                 script.write_review(ctx, all_selected)
             elif stage_id == "03_tts":
                 from .stages import tts

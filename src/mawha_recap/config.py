@@ -92,22 +92,25 @@ class SubtitleConfig(BaseModel):
 
 
 class StyleConfig(BaseModel):
-    voice_guide: str = ""
+    voice_guide: str = "Conversational storytelling to one listener. Natural contractions, varied sentence lengths, and scene-specific emotion. Avoid an announcer delivery."
     tone_notes: str = ""
     wpm: int = 150
-    line_gap_s: float = 0.35
+    line_gap_s: float = 0.0
     loudness_lufs: float = -16.0
     framing: Literal["fill", "blur"] = "fill"
     pan: PanConfig = Field(default_factory=PanConfig)
     min_panel_s: float = 1.5
-    crossfade_s: float = 0.4
+    crossfade_s: float = 0.125
     subtitles: SubtitleConfig = Field(default_factory=SubtitleConfig)
 
 
 class TTSConfig(BaseModel):
-    max_chars: int = 2500
+    delivery: Literal["neutral", "whisper"] = "neutral"
+    max_chars: int = 4500
+    segment_on_beat: bool = False
+    line_separator: str = " "
     tempo: float = 1.0  # <1 slows the assembled VO (atempo); alignment times are rescaled
-    chapter_tail_s: float = 1.5
+    chapter_tail_s: float = 0.3
     prefer_timestamps: bool = True
     usd_per_1k_chars: float = 0.30  # rough estimate for the cost log
 
@@ -122,7 +125,7 @@ class RenderConfig(BaseModel):
     preset: str = "medium"
     clip_crf: int = 16
     clip_preset: str = "faster"
-    chapter_cards: bool = True
+    chapter_cards: bool = False
     title_card_s: float = 2.0
     workers: int = 4
     max_clips_per_graph: int = 120
@@ -150,6 +153,17 @@ class MusicConfig(BaseModel):
     gain_db: float = -18.0
 
 
+class ChannelConfig(BaseModel):
+    tagline: str = "Manhwa's to fall asleep to"
+
+
+class OpeningConfig(BaseModel):
+    enabled: bool = False
+    max_source_chapters: int = Field(default=3, ge=1, le=10)
+    max_panels: int = Field(default=24, ge=4, le=60)
+    target_words: int = Field(default=40, ge=20, le=80)
+
+
 class GateConfig(BaseModel):
     require_approval: bool = True
 
@@ -174,6 +188,8 @@ class VideoConfig(BaseModel):
     package: PackageConfig = Field(default_factory=PackageConfig)
     music: MusicConfig = Field(default_factory=MusicConfig)
     gate: GateConfig = Field(default_factory=GateConfig)
+    opening: OpeningConfig = Field(default_factory=OpeningConfig)
+    channel: ChannelConfig = Field(default_factory=ChannelConfig)
 
     @field_validator("slug")
     @classmethod
@@ -209,6 +225,8 @@ class VideoConfig(BaseModel):
                     "series": d["series"],
                     "source_language": d["source_language"],
                 }
+            case "02_opening":
+                return {"opening": d["opening"], "model": d["llm"]["script_model"], "vision": d["vision"], "series": d["series"], "voice_guide": s["voice_guide"], "variant": d["variant"]}
             case "03_tts":
                 return {
                     "voice": d["voice"],
@@ -230,6 +248,7 @@ class VideoConfig(BaseModel):
             case "05_assemble":
                 return {
                     "package": d["package"],
+                    "channel": d["channel"],
                     "music": d["music"],
                     "meta_model": d["llm"]["meta_model"],
                     "series": d["series"],
@@ -272,28 +291,32 @@ class SeriesConfig(BaseModel):
 
 PRESETS: dict[str, dict[str, Any]] = {
     "recap": {
+        "opening": {"enabled": True},
         "style": {
             "wpm": 150,
-            "line_gap_s": 0.35,
+            "line_gap_s": 0.0,
             "loudness_lufs": -16.0,
             "pan": {"max_px_s": 90.0, "hold_in_s": 0.3, "hold_out_s": 0.3},
             "min_panel_s": 1.5,
-            "crossfade_s": 0.4,
+            "crossfade_s": 0.125,
             "subtitles": {"alpha": 0.0},
         },
         "package": {"title_template": "{series} Chapters {first}-{last} | Full Recap"},
     },
     "sleep": {
+        "opening": {"enabled": True},
+        "tts": {"delivery": "whisper", "segment_on_beat": False, "line_separator": " ", "chapter_tail_s": 0.6},
         "style": {
-            "wpm": 130,
-            "line_gap_s": 0.9,
-            "loudness_lufs": -20.0,
-            "pan": {"max_px_s": 45.0, "hold_in_s": 0.6, "hold_out_s": 0.6},
+            "voice_guide": "Quiet, intimate storytelling for listeners falling asleep. Write for a soft whisper, with natural contractions and connected phrasing. Keep emotion understated; no shouting, sales pitch, sudden exclamations, or repeated dramatic pauses.",
+            "wpm": 115,
+            "line_gap_s": 0.0,
+            "loudness_lufs": -22.0,
+            "pan": {"max_px_s": 30.0, "hold_in_s": 0.6, "hold_out_s": 0.6},
             "min_panel_s": 2.5,
             "crossfade_s": 0.8,
             "subtitles": {"alpha": 0.35},
         },
-        "package": {"title_template": "{series} Chapters {first}-{last} | Sleep Recap"},
+        "package": {"title_template": "{series} | {channel_tagline}", "description_template": "{channel_tagline}\n\n{hook}\n\n{series}, source chapters {first}-{last}.", "thumbnail": {"lockup": "{series}\nFall asleep to the story"}},
     },
 }
 

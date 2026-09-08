@@ -2,7 +2,7 @@
 # everything else falls back to the variant preset (recap | sleep).
 series: "Solo Leveling"
 slug: solo-leveling-ch012-045-sleep       # [a-z0-9_-] only; it becomes the output file name
-variant: sleep                              # recap: 150 wpm, -16 LUFS, brisk pans | sleep: 130 wpm, -20 LUFS, slow pans
+variant: sleep                              # recap: 150 wpm, -16 LUFS, brisk pans | sleep: 115 wpm, -22 LUFS, slow pans
 chapters: "ch012-ch045"                     # null = every chapter in input/, a range string, or [ch012, ch013]
 target_runtime_min: 90
 source_language: en                         # language of the text inside the panels
@@ -34,9 +34,12 @@ style:
   subtitles: {burn: true, max_chars_per_line: 42, font_size: 44}
 
 tts:
-  max_chars: 2500                           # per request; also capped by the model's own limit
+  delivery: whisper                        # applies [whispers] to eleven_v3, never subtitles
+  max_chars: 4500                           # per request; also capped by the model's own limit
   tempo: 1.0                                # 0.93 slows the voice a little (v3 has no speed setting)
-  chapter_tail_s: 1.5
+  chapter_tail_s: 0.6
+  segment_on_beat: false
+  line_separator: " "
 
 render:
   width: 1920
@@ -45,15 +48,15 @@ render:
   oversample: 2                             # 2 = sub-pixel-smooth pans; 3 for the slowest sleep pans
   encoder: auto                             # auto | libx264 | h264_videotoolbox | h264_nvenc | h264_qsv | h264_amf
   crf: 20
-  chapter_cards: true
+  chapter_cards: false
   title_card_s: 2.0
   workers: 4
 
 package:
-  title_template: "{series} Chapters {first}-{last} | Sleep Recap"
+  title_template: "{series} | {channel_tagline}"
   chapter_title_template: "Chapter {n}"
   tags: [manhwa, webtoon, recap, sleep]
-  thumbnail: {lockup: "{series}\nCh. {first}-{last}"}
+  thumbnail: {lockup: "{series}\nFall asleep to the story"}
 
 music: {tracks: [], gain_db: -18}           # drop a file path in tracks to loop a bed under the narration
 

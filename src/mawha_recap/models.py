@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------- Stage 1: panels
@@ -101,6 +103,8 @@ class ScriptLine(BaseModel):
     text: str
     tts_text: str | None = None
     pause_after: float | None = None
+    framing: Literal["fill", "blur", "cover"] | None = None
+    visual_crop: tuple[int, int, int, int] | None = None  # x, y, width, height in source pixels
 
 
 class Script(BaseModel):
@@ -119,6 +123,16 @@ class MetaOut(BaseModel):
     title_suffix: str = Field(description="A 3-7 word teaser suitable for the end of a YouTube title")
 
 
+class OpeningShotOut(BaseModel):
+    panel_id: str
+    text: str = Field(description="Brief spoken narration for this shot, grounded in the supplied beats")
+    crop: tuple[int, int, int, int] = Field(description="Artwork crop x,y,width,height in normalized 0-1000 source coordinates; avoid gutters and text")
+
+
+class OpeningOut(BaseModel):
+    shots: list[OpeningShotOut] = Field(min_length=3, max_length=5)
+
+
 # ---------------------------------------------------------------- Stage 3: timeline
 
 
@@ -135,6 +149,8 @@ class TimelineLine(BaseModel):
     panel_ids: list[str]
     text: str
     words: list[Word] = Field(default_factory=list)
+    framing: Literal["fill", "blur", "cover"] | None = None
+    visual_crop: tuple[int, int, int, int] | None = None
 
 
 class TimelineSegment(BaseModel):

@@ -202,6 +202,7 @@ def run(ctx: Context, chapters: list[str]) -> str:
         first, last = chapter_number(chapters[0]), chapter_number(chapters[-1])
         fmt = {
             "series": cfg.series,
+            "channel_tagline": cfg.channel.tagline,
             "first": first,
             "last": last,
             "variant": cfg.variant,
@@ -215,6 +216,7 @@ def run(ctx: Context, chapters: list[str]) -> str:
         project.description_md.write_text(f"# {title}\n\n{description}\n", encoding="utf-8")
         metadata = {
             "title": title,
+            "channel_tagline": cfg.channel.tagline,
             "description": description,
             "tags": cfg.package.tags,
             "hook": meta.hook,

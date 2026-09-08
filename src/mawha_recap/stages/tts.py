@@ -18,13 +18,13 @@ from ..models import ScriptLine, Timeline, TimelineLine, TimelineSegment, Word
 from ..providers.elevenlabs import TTSResult, load_alignment, save_alignment
 from ..text.alignment import CharAlignment, build_segment_text, line_timing, map_alignment, strip_tags
 from .review import script_hash
-from .script import load_script
+from .script import load_script_for_video
 
 if TYPE_CHECKING:
     from ..pipeline import Context
 
 STAGE = "03_tts"
-CODE_VERSION = "tts-code-v1"
+CODE_VERSION = "tts-code-v2"
 SR = 48000
 LEAD_KEEP_S = 0.15  # leading silence kept before the first word of a segment
 TAIL_KEEP_S = 0.25
@@ -69,7 +69,7 @@ def silence(seconds: float) -> np.ndarray:
 # ------------------------------------------------------------------ segmenting
 
 
-def segment_lines(lines: list[ScriptLine], max_chars: int) -> list[list[ScriptLine]]:
+def segment_lines(lines: list[ScriptLine], max_chars: int, *, segment_on_beat: bool = True) -> list[list[ScriptLine]]:
     """Group consecutive lines up to max_chars; prefer to break where the beat changes."""
     groups: list[list[ScriptLine]] = []
     cur: list[ScriptLine] = []
@@ -77,7 +77,7 @@ def segment_lines(lines: list[ScriptLine], max_chars: int) -> list[list[ScriptLi
     for line in lines:
         t = line.tts_text or line.text
         n = len(t) + 2
-        beat_change = bool(cur) and line.beat != cur[-1].beat
+        beat_change = segment_on_beat and bool(cur) and line.beat != cur[-1].beat
         if cur and (cur_chars + n > max_chars or (beat_change and cur_chars >= 0.6 * max_chars)):
             groups.append(cur)
             cur, cur_chars = [], 0
@@ -86,6 +86,15 @@ def segment_lines(lines: list[ScriptLine], max_chars: int) -> list[list[ScriptLi
     if cur:
         groups.append(cur)
     return groups
+
+
+def delivery_text(text: str, cfg: Any) -> str:
+    """Delivery direction belongs in synthesis input, never subtitle prose."""
+    if cfg.tts.delivery == "whisper":
+        if cfg.voice.model != "eleven_v3":
+            raise ValueError("whisper delivery requires voice.model: eleven_v3; use tts.delivery: neutral for other models")
+        return text if text.lstrip().startswith("[whispers]") else "[whispers] " + text
+    return text
 
 
 # ------------------------------------------------------------------ stage
@@ -106,14 +115,16 @@ def run_chapter(ctx: Context, ch: str) -> str:
                 f"{ch}: script is not approved (or changed since approval). Review review/review.html, then run "
                 "`recap approve`, or pass --no-gate."
             )
-        script = load_script(script_path)
+        script = load_script_for_video(script_path)
         if not script.lines:
             raise ValueError(f"{ch}: script has no lines")
         tdir = project.tts_dir(ch)
         tdir.mkdir(parents=True, exist_ok=True)
         lead_in = cfg.render.title_card_s if cfg.render.chapter_cards else 0.0
         max_chars = min(cfg.tts.max_chars, ctx.tts.max_chars())
-        groups = segment_lines(script.lines, max_chars)
+        delivery_overhead = len(delivery_text("", cfg))
+        groups = segment_lines(script.lines, max(1, max_chars - delivery_overhead), segment_on_beat=cfg.tts.segment_on_beat)
+        separator = cfg.tts.line_separator
         voice_key = canonical_json({"voice": cfg.voice.model_dump(), "provider": ctx.tts.name})
 
         # 1. synthesize (or reuse cached) segments
@@ -121,14 +132,15 @@ def run_chapter(ctx: Context, ch: str) -> str:
         results: list[tuple[TTSResult, CharAlignment, str, int, bool]] = []
         for group in groups:
             texts = [line.tts_text or line.text for line in group]
-            seg_texts.append((build_segment_text(texts)[0], texts))
+            texts[0] = delivery_text(texts[0], cfg)
+            seg_texts.append((build_segment_text(texts, sep=separator)[0], texts))
         for gi, (_group, (text, texts)) in enumerate(zip(groups, seg_texts, strict=True), start=1):
             key = short_hash(voice_key + "\n" + text, 12)
             seg_id = f"seg_{gi:03d}"
             align_path = tdir / f"{seg_id}-{key}.align.json"
             existing = sorted(tdir.glob(f"{seg_id}-{key}.*")) if align_path.exists() else []
             audio_files = [p for p in existing if p.suffix != ".json"]
-            align_text = build_segment_text([strip_tags(t) for t in texts])[0]
+            align_text = build_segment_text([strip_tags(t) for t in texts], sep=separator)[0]
             if audio_files:
                 alignment, aligned_text, source, chars = load_alignment(align_path)
                 res = TTSResult(audio_files[0], alignment, aligned_text, source, chars)
@@ -160,9 +172,9 @@ def run_chapter(ctx: Context, ch: str) -> str:
             pcm = decode_pcm(res.audio_path)
             seg_len = pcm.size / SR
             if aligned_text == text:
-                used_text, spans = build_segment_text(texts)
+                used_text, spans = build_segment_text(texts, sep=separator)
             else:
-                used_text, spans = build_segment_text([strip_tags(t) for t in texts])
+                used_text, spans = build_segment_text([strip_tags(t) for t in texts], sep=separator)
             starts, ends = map_alignment(used_text, alignment)
             timings = [line_timing(used_text, span, starts, ends, seg_len) for span in spans]
             for i, line in enumerate(group):
@@ -187,6 +199,8 @@ def run_chapter(ctx: Context, ch: str) -> str:
                         end=round(line_start + (e - cut0) * scale, 3),
                         panel_ids=list(line.panel_ids),
                         text=line.text,
+                        framing=line.framing,
+                        visual_crop=line.visual_crop,
                         words=[
                             Word(w=w.w, s=round(line_start + (w.s - cut0) * scale, 3), e=round(line_start + (w.e - cut0) * scale, 3))
                             for w in words

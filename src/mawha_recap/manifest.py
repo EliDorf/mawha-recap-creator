@@ -19,7 +19,7 @@ ALL_STAGES = CHAPTER_STAGES + [VIDEO_STAGE]
 STAGE_NUMBERS: dict[int, list[str]] = {
     0: ["00_ingest"],
     1: ["01_panels"],
-    2: ["02_beats", "02_script"],
+    2: ["02_beats", "02_script", "02_opening"],
     3: ["03_tts"],
     4: ["04_render"],
     5: ["05_assemble"],

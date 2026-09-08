@@ -29,12 +29,15 @@ def test_presets_merge_under_user_values(tmp_path: Path):
     p.write_text("series: S\nslug: s-1\nvariant: sleep\nstyle:\n  wpm: 120\n", encoding="utf-8")
     cfg = load_video_config(p)
     assert cfg.style.wpm == 120  # user override wins
-    assert cfg.style.line_gap_s == 0.9  # sleep preset
-    assert cfg.style.loudness_lufs == -20.0
+    assert cfg.style.line_gap_s == 0.0  # sleep preset
+    assert cfg.style.loudness_lufs == -22.0
     assert cfg.style.subtitles.alpha == 0.35
     p.write_text("series: S\nslug: s-1\n", encoding="utf-8")
     cfg = load_video_config(p)
-    assert cfg.variant == "recap" and cfg.style.wpm == 150 and cfg.style.line_gap_s == 0.35
+    assert cfg.variant == "recap" and cfg.style.wpm == 150 and cfg.style.line_gap_s == 0.0
+    assert cfg.opening.enabled
+    assert not cfg.render.chapter_cards
+    assert not cfg.tts.segment_on_beat and cfg.tts.line_separator == " "
 
 
 def test_bad_slug(tmp_path: Path):

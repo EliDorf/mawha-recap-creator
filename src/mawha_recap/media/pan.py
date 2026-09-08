@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 def allocate_durations(
@@ -85,6 +85,7 @@ class ClipSpec:
     mode: str  # pan | fit | blur | card
     src_w: int
     src_h: int
+    crop: tuple[int, int, int, int] | None = None
 
     @property
     def total_frames(self) -> int:
@@ -106,7 +107,18 @@ def scaled_height(src_w: int, src_h: int, target_w: int) -> int:
     return h + (h % 2)  # keep even for yuv420p downstream
 
 
-def clip_filter(
+def clip_filter(spec: ClipSpec, **kwargs) -> str:
+    """Apply an optional shot crop before scaling and camera movement."""
+    if spec.crop is None:
+        return _clip_filter(spec, **kwargs)
+    x, y, w, h = spec.crop
+    if x < 0 or y < 0 or w <= 0 or h <= 0 or x + w > spec.src_w or y + h > spec.src_h:
+        raise ValueError(f"crop outside source image for {spec.panel_id}: {spec.crop}")
+    graph = _clip_filter(replace(spec, src_w=w, src_h=h, crop=None), **kwargs)
+    return f"[0:v]crop={w}:{h}:{x}:{y}[shot];" + graph.replace("[0:v]", "[shot]")
+
+
+def _clip_filter(
     spec: ClipSpec,
     *,
     fps: int,
@@ -126,6 +138,9 @@ def clip_filter(
     duration = n / fps
     if spec.mode == "card":
         return f"[0:v]scale={out_w}:{out_h}:flags=lanczos,format=yuv420p,{loop},fps={fps}[v]"
+    if spec.mode == "cover":
+        z = f"zoompan=z='1+{zoom:.3f}*on/{n}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={n}:s={ow}x{oh}:fps={fps}"
+        return f"[0:v]scale={ow}:{oh}:force_original_aspect_ratio=increase,crop={ow}:{oh},format=gbrp,{z},{finish}[v]"
     if spec.mode == "pan":
         sh = scaled_height(spec.src_w, spec.src_h, ow)
         travel = max(0, sh - oh)
