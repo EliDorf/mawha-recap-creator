@@ -33,9 +33,9 @@ uv run recap doctor          # checks ffmpeg, filters, encoders, fonts, keys
 
 `uv run recap …` works from the repo. To install the command globally: `uv tool install .`
 
-## Production style
+## Sleep-channel production style
 
-Recap projects generate one visual story hook, play without chapter cards, and use connected narration passages without added per-line gaps. The hook selects 3–5 shots from early story beats, including later-chapter action panels, and is reviewed alongside the script before TTS. Use `recap audition <dir>` to compare voices before a full render. See [the production workflow](docs/production-workflow.md) and [recap profile](examples/recap.config.yaml) for settings, review steps, and migration of existing projects.
+New projects default to **Manhwa's to fall asleep to**: a 90-minute sleep video with a whispered voice, one visual story hook, no chapter cards, and connected narration passages without added per-line gaps. The sleep profile uses a quieter mix, slower pans, and softer transitions. Use `--variant recap` for a brisker version. The hook selects 3–5 shots from early story beats, including later-chapter action panels, and is reviewed alongside the script before TTS. Use `recap audition <dir>` to compare voices before a full render. See [the production workflow](docs/production-workflow.md) and [sleep profile](examples/sleep.config.yaml) for settings, review steps, and migration of existing projects.
 
 ## Quickstart
 
@@ -93,10 +93,10 @@ See `examples/config.example.yaml` for every key with comments. The important on
 
 | Key | recap preset | sleep preset | Notes |
 |---|---|---|---|
-| `style.wpm` | 150 | 130 | drives the word budget |
-| `style.line_gap_s` | 0.0 | 0.9 | silence between narration lines |
-| `style.loudness_lufs` | -16 | -20 | two-pass loudnorm target (TP -1.5, LRA 11) |
-| `style.pan.max_px_s` | 90 | 45 | pan speed cap at 1080p; slower pans get more time per panel |
+| `style.wpm` | 150 | 115 | drives the word budget |
+| `style.line_gap_s` | 0.0 | 0.0 | silence between narration lines |
+| `style.loudness_lufs` | -16 | -22 | two-pass loudnorm target (TP -1.5, LRA 11) |
+| `style.pan.max_px_s` | 90 | 30 | pan speed cap at 1080p; slower pans get more time per panel |
 | `style.min_panel_s` / `crossfade_s` | 1.5 / 0.125 | 2.5 / 0.8 | panel hold floor, fade length |
 | `style.framing` | fill | fill | `fill` = crop to 16:9 and pan; `blur` = panel over a blurred backdrop |
 | `style.subtitles.burn` | true | true | sidecar `.srt` is always written |
@@ -109,7 +109,7 @@ See `examples/config.example.yaml` for every key with comments. The important on
 
 ### The sleep variant
 
-Same pipeline, different knobs: slower voice pacing (longer pauses, optional `tts.tempo`, pacing devices in `tts_text` such as `…` and `[pause]`), -20 LUFS, slower pans with longer holds, softer subtitle colour. The writing prompt is shared; put any tone differences in `style.tone_notes`.
+Same pipeline, different knobs: a whispered Eleven v3 delivery, a 115-wpm writing budget, -22 LUFS, slower pans, softer transitions, and softer subtitle colour. Natural pauses are retained without adding gaps between every narration line. The writing prompt is shared; put any tone differences in `style.tone_notes`.
 
 ## Manual fixes
 

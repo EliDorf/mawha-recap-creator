@@ -88,6 +88,15 @@ def segment_lines(lines: list[ScriptLine], max_chars: int, *, segment_on_beat: b
     return groups
 
 
+def delivery_text(text: str, cfg: Any) -> str:
+    """Delivery direction belongs in synthesis input, never subtitle prose."""
+    if cfg.tts.delivery == "whisper":
+        if cfg.voice.model != "eleven_v3":
+            raise ValueError("whisper delivery requires voice.model: eleven_v3; use tts.delivery: neutral for other models")
+        return text if text.lstrip().startswith("[whispers]") else "[whispers] " + text
+    return text
+
+
 # ------------------------------------------------------------------ stage
 
 
@@ -113,7 +122,8 @@ def run_chapter(ctx: Context, ch: str) -> str:
         tdir.mkdir(parents=True, exist_ok=True)
         lead_in = cfg.render.title_card_s if cfg.render.chapter_cards else 0.0
         max_chars = min(cfg.tts.max_chars, ctx.tts.max_chars())
-        groups = segment_lines(script.lines, max_chars, segment_on_beat=cfg.tts.segment_on_beat)
+        delivery_overhead = len(delivery_text("", cfg))
+        groups = segment_lines(script.lines, max(1, max_chars - delivery_overhead), segment_on_beat=cfg.tts.segment_on_beat)
         separator = cfg.tts.line_separator
         voice_key = canonical_json({"voice": cfg.voice.model_dump(), "provider": ctx.tts.name})
 
@@ -122,6 +132,7 @@ def run_chapter(ctx: Context, ch: str) -> str:
         results: list[tuple[TTSResult, CharAlignment, str, int, bool]] = []
         for group in groups:
             texts = [line.tts_text or line.text for line in group]
+            texts[0] = delivery_text(texts[0], cfg)
             seg_texts.append((build_segment_text(texts, sep=separator)[0], texts))
         for gi, (_group, (text, texts)) in enumerate(zip(groups, seg_texts, strict=True), start=1):
             key = short_hash(voice_key + "\n" + text, 12)

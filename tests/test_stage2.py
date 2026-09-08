@@ -69,7 +69,7 @@ def test_stage2_stub_end_to_end(project_factory):
         assert script.word_count() > 0
         assert ctx.manifest.stage(ch, "02_beats")["status"] == "ok"
         assert ctx.manifest.stage(ch, "02_script")["status"] == "ok"
-    assert ctx.manifest.budget["total_words"] == round(3.0 * 130)
+    assert ctx.manifest.budget["total_words"] == round(3.0 * 115)
     assert ctx.project.review_html.exists()
     html = ctx.project.review_html.read_text(encoding="utf-8")
     assert "Chapter 1" in html and "Chapter 2" in html and "not approved" in html

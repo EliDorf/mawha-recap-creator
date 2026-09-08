@@ -44,11 +44,13 @@ def test_full_pipeline_and_selective_rerun(project_factory):
     total = sum(load_timeline(p.timeline_json(ch)).duration for ch in ("ch001", "ch002"))
     assert abs(ff.duration(p.final_mp4) - total) < 0.2
     meta = json.loads(p.metadata_json.read_text(encoding="utf-8"))
-    assert meta["title"].startswith("Test Series Chapters 1-2 | Sleep Recap")
+    assert meta["title"] == "Test Series | Manhwa's to fall asleep to"
+    assert meta["channel_tagline"] == "Manhwa's to fall asleep to"
     assert [c["id"] for c in meta["chapters"]] == ["ch001", "ch002"]
     assert abs(meta["chapters"][1]["offset_s"] - load_timeline(p.timeline_json("ch001")).duration) < 1e-6
     assert p.chapters_txt.read_text(encoding="utf-8").startswith("00:00 Chapter 1\n")
     srt = p.final_srt.read_text(encoding="utf-8")
+    assert "[whispers]" not in srt
     n_lines = sum(len(load_timeline(p.timeline_json(ch)).lines) for ch in ("ch001", "ch002"))
     assert srt.count("-->") >= n_lines
     with Image.open(p.thumbnail_jpg) as im:

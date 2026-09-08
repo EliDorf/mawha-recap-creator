@@ -43,6 +43,9 @@ chapters: null                # null = every chapter in input/, or "ch012-ch045"
 target_runtime_min: {runtime}
 source_language: en
 
+channel:
+  tagline: "Manhwa's to fall asleep to"
+
 voice:
   id: "{voice}"
   model: eleven_v3
@@ -57,7 +60,7 @@ llm:
 
 style:
   voice_guide: |
-    Conversational storytelling to one listener. Present tense, natural contractions, varied sentence lengths. Refer to characters by name. Avoid an announcer delivery.
+    {voice_guide}
   # wpm / line_gap_s / loudness_lufs / pan / crossfade_s come from the variant preset; override here if needed.
   subtitles: {{burn: true}}
 
@@ -90,8 +93,8 @@ def init(
     project_dir: Annotated[Path, typer.Argument(help="Project directory to create")],
     series: Annotated[str, typer.Option(help="Series display name")] = "My Series",
     slug: Annotated[str | None, typer.Option(help="Output slug [a-z0-9_-]")] = None,
-    variant: Annotated[str, typer.Option(help="recap | sleep")] = "recap",
-    runtime: Annotated[float, typer.Option(help="Target runtime in minutes")] = 25,
+    variant: Annotated[str, typer.Option(help="recap | sleep")] = "sleep",
+    runtime: Annotated[float, typer.Option(help="Target runtime in minutes")] = 90,
     voice: Annotated[str, typer.Option(help="ElevenLabs voice id")] = "CwhRBWXzGAHq8TQ4Fs17",
 ) -> None:
     """Create a project directory with config.yaml, input/ and a series.yaml next to it."""
@@ -107,7 +110,7 @@ def init(
         console.print(f"[yellow]{cfg} already exists, leaving it alone[/]")
     else:
         cfg.write_text(
-            CONFIG_TEMPLATE.format(series=series, slug=slug, variant=variant, runtime=runtime, voice=voice),
+            CONFIG_TEMPLATE.format(series=series, slug=slug, variant=variant, runtime=runtime, voice=voice, voice_guide=("Quiet, intimate storytelling for listeners falling asleep. Natural contractions and connected phrasing. No shouting, promotional delivery, or exaggerated dramatic pauses." if variant == "sleep" else "Conversational storytelling to one listener. Natural contractions and varied sentence lengths. Avoid an announcer delivery.")),
             encoding="utf-8",
         )
     series_path = project_dir.parent / "series.yaml"
@@ -121,7 +124,7 @@ def init(
 def demo(
     project_dir: Annotated[Path, typer.Argument(help="Directory to create the demo project in")],
     chapters: Annotated[int, typer.Option(help="Number of synthetic chapters")] = 3,
-    variant: Annotated[str, typer.Option(help="recap | sleep")] = "recap",
+    variant: Annotated[str, typer.Option(help="recap | sleep")] = "sleep",
 ) -> None:
     """Create a small synthetic project so the whole pipeline can be tried offline with --stub."""
     from .synthetic import write_demo_project
@@ -222,6 +225,7 @@ def audition(
     from .pipeline import make_context, resolve_chapters
     from .providers.elevenlabs import save_alignment
     from .stages.script import load_script_for_video
+    from .stages.tts import delivery_text
     from .text.alignment import strip_tags
 
     ctx = make_context(project_dir, stub=stub)
@@ -241,6 +245,7 @@ def audition(
         text = " ".join(sample_lines)
     if not text or len(text) > 800:
         raise typer.BadParameter("provide 1–800 characters with --text, or shorter script lines")
+    text = delivery_text(text, ctx.config)
     key = short_hash(canonical_json({"voice": ctx.config.voice.model_dump(), "text": text, "provider": ctx.tts.name}), 12)
     directory = ctx.project.work / "auditions"
     directory.mkdir(parents=True, exist_ok=True)
