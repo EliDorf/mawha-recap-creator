@@ -12,8 +12,7 @@ from ..config import chapter_number
 from ..manifest import canonical_json, sha256_text
 from ..models import Panel
 from .beats import load_beats
-from .script import load_script
-from .segment import load_panels
+from .script import load_script_for_video
 
 if TYPE_CHECKING:
     from ..pipeline import Context
@@ -23,7 +22,7 @@ THUMB_W = 160
 
 def script_hash(path: Path) -> str:
     """Hash of the script's *content* (ids, panels, text), independent of YAML formatting."""
-    script = load_script(path)
+    script = load_script_for_video(path)
     canon = [
         {
             "id": line.id,
@@ -32,19 +31,25 @@ def script_hash(path: Path) -> str:
             "text": line.text,
             "tts_text": line.tts_text,
             "pause_after": line.pause_after,
+            **({"framing": line.framing} if line.framing is not None else {}),
+            **({"visual_crop": line.visual_crop} if line.visual_crop is not None else {}),
         }
         for line in script.lines
     ]
     return sha256_text(canonical_json(canon))
 
 
-def thumb_for(ctx: Context, ch: str, panel: Panel) -> Path:
+def thumb_for(ctx: Context, ch: str, panel: Panel, crop: tuple[int, int, int, int] | None = None) -> Path:
     thumbs = ctx.project.review_dir / "thumbs"
     thumbs.mkdir(parents=True, exist_ok=True)
-    out = thumbs / f"{panel.id}-{panel.sha256[-8:]}.jpg"
+    crop_key = "-" + "_".join(map(str, crop)) if crop else ""
+    out = thumbs / f"{panel.id}-{panel.sha256[-8:]}{crop_key}.jpg"
     if not out.exists():
         with Image.open(ctx.project.panels_dir(ch) / panel.file) as im:
             im = im.convert("RGB")
+            if crop:
+                x, y, w, h = crop
+                im = im.crop((x, y, x + w, y + h))
             h = max(1, round(im.height * THUMB_W / im.width))
             im.resize((THUMB_W, h), Image.LANCZOS).save(out, quality=80)
     return out
@@ -79,8 +84,8 @@ def render_review(ctx: Context, chapters: list[str]) -> Path:
         if not sp.exists():
             sections.append(f'<section id="{ch}"><h2>Chapter {n}</h2><div class="meta">no script yet</div></section>')
             continue
-        script = load_script(sp)
-        panels = load_panels(project.panels_json(ch)).by_id() if project.panels_json(ch).exists() else {}
+        script = load_script_for_video(sp)
+        panels = project.referenced_panels([pid for line in script.lines for pid in line.panel_ids])
         beats = load_beats(project.beats_json(ch)) if project.beats_json(ch).exists() else None
         beat_text = {b.id: b.what_happens for b in beats.beats} if beats else {}
         words = script.word_count()
@@ -101,10 +106,13 @@ def render_review(ctx: Context, chapters: list[str]) -> Path:
                 if p is None:
                     thumbs.append(f'<span class="warn">{html.escape(pid)}?</span>')
                     continue
-                t = thumb_for(ctx, ch, p)
-                full = (project.panels_dir(ch) / p.file).resolve().as_uri()
+                source_ch, _ = project.panel_source(pid)
+                t = thumb_for(ctx, source_ch, p, line.visual_crop)
+                full = (project.panels_dir(source_ch) / p.file).resolve().as_uri()
                 thumbs.append(f'<a href="{full}"><img src="thumbs/{t.name}" title="{pid}"></a>')
             tts = f'<div class="tts">voice: {html.escape(line.tts_text)}</div>' if line.tts_text else ""
+            if line.visual_crop:
+                tts += f'<div class="tts">Shot: {line.framing}; crop (x, y, w, h): {line.visual_crop}</div>'
             beat = html.escape(beat_text.get(line.beat, ""))
             rows.append(
                 f'<tr><td class="id">{line.id}<br><span title="{beat}">{html.escape(line.beat)}</span></td>'
@@ -135,10 +143,18 @@ def approve_chapters(ctx: Context, chapters: list[str]) -> list[str]:
         if not sp.exists():
             ctx.log(f"  [yellow]{ch}: no script to approve[/]")
             continue
-        script = load_script(sp)
+        script = load_script_for_video(sp)
         if not script.lines:
             ctx.log(f"  [red]{ch}: script has no lines[/]")
             continue
+        panels = ctx.project.referenced_panels([pid for line in script.lines for pid in line.panel_ids])
+        for line in script.lines:
+            if line.visual_crop:
+                x, y, w, h = line.visual_crop
+                for pid in line.panel_ids:
+                    panel = panels[pid]
+                    if min(x, y) < 0 or min(w, h) <= 0 or x + w > panel.w or y + h > panel.h:
+                        raise ValueError(f"{line.id}: crop outside source image {pid}; fix before approving")
         ctx.manifest.set_approval(ch, script_hash(sp))
         approved.append(ch)
         ctx.log(f"  [green]{ch}: approved[/] ({script.word_count()} words, {len(script.lines)} lines)")

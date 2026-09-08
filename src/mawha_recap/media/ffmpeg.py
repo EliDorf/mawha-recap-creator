@@ -88,12 +88,19 @@ def major_version() -> int | None:
     return int(m.group(1)) if m else None
 
 
+def filter_script_args(path: str) -> list[str]:
+    """FFmpeg 9 removed filter_complex_script in favor of file-valued options."""
+    option = "-/filter_complex" if (major_version() or 0) >= 9 else "-filter_complex_script"
+    return [option, path]
+
+
 @lru_cache(maxsize=1)
 def filters() -> set[str]:
     out = run([ffmpeg(), "-hide_banner", "-filters"]).stdout
     names: set[str] = set()
     for line in out.splitlines():
-        m = re.match(r"\s*[A-Z.]{3,4}\s+(\S+)\s+", line)
+        # FFmpeg 8 uses two flag columns; older releases use three.
+        m = re.match(r"\s*[A-Z.]{2,4}\s+(\S+)\s+", line)
         if m:
             names.add(m.group(1))
     return names
@@ -184,7 +191,8 @@ def encoder_args(encoder: str, crf: int, preset: str) -> list[str]:
 
 # ---------------------------------------------------------------- loudnorm two-pass
 
-_JSON_TAIL_RE = re.compile(r"\{[^{}]*\}\s*$", re.S)
+# FFmpeg 8 may print progress and muxing statistics after the JSON block.
+_LOUDNORM_JSON_RE = re.compile(r'\{[^{}]*"input_i"[^{}]*\}', re.S)
 
 
 def loudnorm_measure(
@@ -195,7 +203,7 @@ def loudnorm_measure(
         [ffmpeg(), "-hide_banner", "-nostdin", "-i", input_path, "-af", af, "-f", "null", "-"],
         cwd=cwd,
     )
-    m = _JSON_TAIL_RE.search(proc.stderr)
+    m = _LOUDNORM_JSON_RE.search(proc.stderr)
     if not m:
         raise FFmpegError("loudnorm measurement did not print JSON stats")
     return json.loads(m.group(0))
@@ -238,5 +246,5 @@ def loudnorm_apply(
         ],
         cwd=cwd,
     )
-    m = _JSON_TAIL_RE.search(proc.stderr)
+    m = _LOUDNORM_JSON_RE.search(proc.stderr)
     return json.loads(m.group(0)) if m else {}

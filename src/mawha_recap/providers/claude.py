@@ -154,6 +154,12 @@ class StubLLM:
             return self._beats(hint), usage  # type: ignore[return-value]
         if schema is ScriptOut:
             return self._script(hint), usage  # type: ignore[return-value]
+        from ..models import OpeningOut, OpeningShotOut
+
+        if schema is OpeningOut:
+            panels = hint["panels"]
+            texts = ["The way ahead is dangerous, but turning back means giving up the search.", "An obstacle stands between the traveler and the answer they need.", "Now they must decide whether to take the next step into the unknown."]
+            return OpeningOut(shots=[OpeningShotOut(panel_id=panels[i % len(panels)]["panel_id"], text=t, crop=(0,0,1000,1000)) for i,t in enumerate(texts)]), usage
         if schema is MetaOut:
             return MetaOut(hook="A quiet retelling of the chapters, beat by beat. Settle in.", title_suffix="the story so far"), usage  # type: ignore[return-value]
         raise NotImplementedError(f"stub has no answer for {schema.__name__}")

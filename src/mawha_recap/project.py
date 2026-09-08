@@ -97,6 +97,31 @@ class Project:
     def script_yaml(self, ch: str) -> Path:
         return self.work / "02_script" / f"{ch}.script.yaml"
 
+    @property
+    def opening_yaml(self) -> Path:
+        return self.work / "02_script" / "opening.yaml"
+
+    def panel_source(self, panel_id: str) -> tuple[str, Path]:
+        import re
+
+        match = re.fullmatch(r"(ch\d+)_p\d+", panel_id)
+        if not match:
+            raise ValueError(f"invalid panel id: {panel_id!r}")
+        ch = match.group(1)
+        return ch, self.panels_json(ch)
+
+    def referenced_panels(self, ids: list[str]) -> dict:
+        from .stages.segment import load_panels
+
+        chapters = {self.panel_source(pid)[0] for pid in ids}
+        panels = {}
+        for ch in chapters:
+            panels.update(load_panels(self.panels_json(ch)).by_id())
+        missing = set(ids) - panels.keys()
+        if missing:
+            raise ValueError(f"missing referenced panels: {sorted(missing)}")
+        return panels
+
     def tts_dir(self, ch: str) -> Path:
         return self.work / "03_tts" / ch
 

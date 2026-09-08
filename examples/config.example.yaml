@@ -45,7 +45,7 @@ render:
   oversample: 2                             # 2 = sub-pixel-smooth pans; 3 for the slowest sleep pans
   encoder: auto                             # auto | libx264 | h264_videotoolbox | h264_nvenc | h264_qsv | h264_amf
   crf: 20
-  chapter_cards: true
+  chapter_cards: false
   title_card_s: 2.0
   workers: 4
 

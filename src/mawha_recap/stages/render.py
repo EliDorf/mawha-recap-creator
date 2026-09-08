@@ -21,14 +21,13 @@ from ..media.pan import ClipSpec, allocate_durations, clip_filter, frames_for, s
 from ..media.subtitles import build_ass
 from ..models import Panel, Timeline
 from ..project import PACKAGE_FONTS, SUBTITLE_FONT_NAME, TITLE_FONT_FILE
-from .segment import load_panels
 from .tts import load_timeline
 
 if TYPE_CHECKING:
     from ..pipeline import Context
 
 STAGE = "04_render"
-CODE_VERSION = "render-code-v1"
+CODE_VERSION = "render-code-v2"
 CARD_ID = "__card__"
 
 
@@ -63,21 +62,21 @@ def plan_clips(ctx: Context, ch: str, tl: Timeline, panels: dict[str, Panel], ca
     fade_frames = int(round(cfg.style.crossfade_s * fps))
     warnings: list[str] = []
 
-    boundaries: list[tuple[float, float, list[str]]] = []
+    boundaries: list[tuple[float, float, list[str], str | None, tuple[int, int, int, int] | None]] = []
     if tl.lead_in > 0 and card is not None:
-        boundaries.append((0.0, tl.lead_in, [CARD_ID]))
+        boundaries.append((0.0, tl.lead_in, [CARD_ID], None, None))
     for i, line in enumerate(tl.lines):
         start = tl.lead_in if i == 0 else line.start
         end = tl.lines[i + 1].start if i + 1 < len(tl.lines) else tl.duration
         if end <= start:
             continue
-        boundaries.append((start, end, list(line.panel_ids)))
+        boundaries.append((start, end, list(line.panel_ids), line.framing, line.visual_crop))
     if boundaries and boundaries[0][0] > 0:
-        boundaries.insert(0, (0.0, boundaries[0][0], boundaries[0][2][:1]))
+        boundaries.insert(0, (0.0, boundaries[0][0], boundaries[0][2][:1], boundaries[0][3], boundaries[0][4]))
 
     specs: list[ClipSpec] = []
     total_frames = int(round(tl.duration * fps))
-    for start, end, ids in boundaries:
+    for start, end, ids, framing, crop in boundaries:
         f0, f1 = int(round(start * fps)), int(round(end * fps))
         if f1 <= f0:
             continue
@@ -91,7 +90,7 @@ def plan_clips(ctx: Context, ch: str, tl: Timeline, panels: dict[str, Panel], ca
             if specs:
                 specs[-1].frames += span_frames
             continue
-        heights = [scaled_height(panels[p].w, panels[p].h, ow) for p in known]
+        heights = [scaled_height(crop[2], crop[3], ow) if crop else scaled_height(panels[p].w, panels[p].h, ow) for p in known]
         durations = allocate_durations(
             span_frames / fps, heights, oh, cfg.style.min_panel_s, cfg.style.pan.max_px_s * os_
         )
@@ -100,11 +99,14 @@ def plan_clips(ctx: Context, ch: str, tl: Timeline, panels: dict[str, Panel], ca
         frames = frames_for(durations, fps, span_frames)
         for pid, fr, sh in zip(known, frames, heights, strict=False):
             p = panels[pid]
-            if cfg.style.framing == "blur":
+            if framing == "cover":
+                mode = "cover"
+            elif (framing or cfg.style.framing) == "blur":
                 mode = "blur" if sh > oh else "fit"
             else:
                 mode = "pan" if sh > oh else "fit"
-            specs.append(ClipSpec(pid, ctx.project.rel(ctx.project.panels_dir(ch) / p.file), fr, 0, mode, p.w, p.h))
+            source_ch, _ = ctx.project.panel_source(pid)
+            specs.append(ClipSpec(pid, ctx.project.rel(ctx.project.panels_dir(source_ch) / p.file), fr, 0, mode, p.w, p.h, crop))
     got = sum(s.frames for s in specs)
     if got != total_frames and specs:
         specs[-1].frames += total_frames - got
@@ -190,7 +192,7 @@ def part_filter_script(clips_rel: list[str], specs: list[ClipSpec], fps: int, fa
 def render_chapter(ctx: Context, ch: str) -> dict[str, Any]:
     project, cfg = ctx.project, ctx.config
     tl = load_timeline(project.timeline_json(ch))
-    panels = load_panels(project.panels_json(ch)).by_id()
+    panels = project.referenced_panels([pid for line in tl.lines for pid in line.panel_ids])
     fonts_dir = project.ensure_fonts()
     rdir = project.render_dir(ch)
     (rdir / "clips").mkdir(parents=True, exist_ok=True)
@@ -253,7 +255,7 @@ def render_chapter(ctx: Context, ch: str) -> dict[str, Any]:
         args = [*ff.ffmpeg_cmd()]
         for rel in part_clips[0]:
             args += ["-i", rel]
-        args += ["-i", vo_rel, "-filter_complex_script", project.rel(script), "-map", "[v]", "-map", f"{len(part_clips[0])}:a"]
+        args += ["-i", vo_rel, *ff.filter_script_args(project.rel(script)), "-map", "[v]", "-map", f"{len(part_clips[0])}:a"]
         args += [*enc_args, *common_video, *audio_args, "-t", f"{tl.duration:.3f}", out_rel]
         ff.run(args, cwd=project.root)
     else:
@@ -265,7 +267,7 @@ def render_chapter(ctx: Context, ch: str) -> dict[str, Any]:
             args = [*ff.ffmpeg_cmd()]
             for rel in rels:
                 args += ["-i", rel]
-            args += ["-filter_complex_script", project.rel(script), "-map", "[v]", *enc_args, *common_video, "-an", part_out]
+            args += [*ff.filter_script_args(project.rel(script)), "-map", "[v]", *enc_args, *common_video, "-an", part_out]
             ff.run(args, cwd=project.root)
             part_files.append(part_out)
         concat_list = rdir / f"{ch}.parts.txt"
@@ -297,7 +299,7 @@ def run_chapter(ctx: Context, ch: str) -> str:
     if not tl_path.exists():
         raise FileNotFoundError(f"{ch}: run stage 3 first ({tl_path} missing)")
     used = {pid for line in load_timeline(tl_path).lines for pid in line.panel_ids}
-    panels = load_panels(project.panels_json(ch)).by_id()
+    panels = project.referenced_panels(list(used))
     fp = fingerprint(
         stage=STAGE,
         version=CODE_VERSION,

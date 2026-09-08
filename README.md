@@ -14,6 +14,7 @@ out/<slug>.mp4 + .srt + chapters.txt + description.md + metadata.json + thumbnai
 | 1 panels | projection-profile gutter detection, min/max panel rules, manual overrides | strip | `work/01_panels/<ch>/<ch>_pNNN.png`, `panels.json` |
 | 2 beats | Claude looks at the chapter's panels and emits a structured beat sheet | panels, `series.yaml`, earlier summaries | `work/02_beats/<ch>.beats.json` |
 | 2 script | Claude writes narration lines that keep their panel references, under a word budget | beats | `work/02_script/<ch>.script.yaml`, `review/review.html` |
+| 2 opening | selects a 3–5 shot story hook with artwork crops from early chapters | beats + candidate panels | `work/02_script/opening.yaml`, `review/review.html` |
 | 3 TTS | ElevenLabs per segment, word timestamps, per-line assembly with pauses, loudnorm | approved script | `work/03_tts/<ch>.vo.wav`, `<ch>.timeline.json` |
 | 4 render | Ken Burns pan per panel, crossfades, burned subtitles, chapter title card, VO mux | timeline, panels | `work/04_render/<ch>.mp4` |
 | 5 assemble | concat, optional music bed, SRT, chapter markers, title/description, thumbnail | chapter renders | `out/` |
@@ -21,7 +22,7 @@ out/<slug>.mp4 + .srt + chapters.txt + description.md + metadata.json + thumbnai
 ## Requirements
 
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
-- FFmpeg 6+ built with libass (`brew install ffmpeg` on macOS, `winget install Gyan.FFmpeg` on Windows, `apt install ffmpeg` on Debian/Ubuntu)
+- FFmpeg 6+ built with libass (`brew install ffmpeg-full` on macOS, `winget install Gyan.FFmpeg` on Windows, `apt install ffmpeg` on Debian/Ubuntu)
 - `ANTHROPIC_API_KEY` and `ELEVENLABS_API_KEY` in the environment for real runs (`--stub` runs the whole pipeline offline with fake providers)
 
 ```bash
@@ -31,6 +32,10 @@ uv run recap doctor          # checks ffmpeg, filters, encoders, fonts, keys
 ```
 
 `uv run recap …` works from the repo. To install the command globally: `uv tool install .`
+
+## Production style
+
+Recap projects generate one visual story hook, play without chapter cards, and use connected narration passages without added per-line gaps. The hook selects 3–5 shots from early story beats, including later-chapter action panels, and is reviewed alongside the script before TTS. Use `recap audition <dir>` to compare voices before a full render. See [the production workflow](docs/production-workflow.md) and [recap profile](examples/recap.config.yaml) for settings, review steps, and migration of existing projects.
 
 ## Quickstart
 
@@ -65,6 +70,7 @@ recap approve demo && recap run demo --all --stub
 | `recap init <dir>` | create `config.yaml`, `input/` and a `series.yaml` one level up |
 | `recap run <dir> --stage N` / `--all` | run one stage (0-5) or all, for `--chapter ch012` only if given |
 | `recap approve <dir>` | hash the current scripts into the manifest; stage 3 refuses unapproved or edited scripts |
+| `recap audition <dir> [--voice ID]` | cached short voice sample before a full narration run |
 | `recap status <dir>` | chapter × stage table, flags, approval state, spend so far |
 | `recap doctor [<dir>]` | environment check; `--probe-tts` makes one tiny ElevenLabs request to learn the timing path |
 | `recap demo <dir>` | synthetic project for an offline dry run |
@@ -88,14 +94,14 @@ See `examples/config.example.yaml` for every key with comments. The important on
 | Key | recap preset | sleep preset | Notes |
 |---|---|---|---|
 | `style.wpm` | 150 | 130 | drives the word budget |
-| `style.line_gap_s` | 0.35 | 0.9 | silence between narration lines |
+| `style.line_gap_s` | 0.0 | 0.9 | silence between narration lines |
 | `style.loudness_lufs` | -16 | -20 | two-pass loudnorm target (TP -1.5, LRA 11) |
 | `style.pan.max_px_s` | 90 | 45 | pan speed cap at 1080p; slower pans get more time per panel |
-| `style.min_panel_s` / `crossfade_s` | 1.5 / 0.4 | 2.5 / 0.8 | panel hold floor, fade length |
+| `style.min_panel_s` / `crossfade_s` | 1.5 / 0.125 | 2.5 / 0.8 | panel hold floor, fade length |
 | `style.framing` | fill | fill | `fill` = crop to 16:9 and pan; `blur` = panel over a blurred backdrop |
 | `style.subtitles.burn` | true | true | sidecar `.srt` is always written |
 | `render.encoder` | auto | auto | `auto` probes VideoToolbox / NVENC / QSV / AMF with a test encode, else libx264 |
-| `render.chapter_cards` | true | true | 2-second "Chapter N" card; it is also the chapter-marker anchor |
+| `render.chapter_cards` | false | false | Continuous visuals; explicitly enable to show chapter cards |
 | `tts.tempo` | 1.0 | 1.0 | `eleven_v3` has no speed setting; 0.93 slows the voice via atempo |
 | `vision.max_w` / `max_h` | 1000 / 2000 | | panels are downscaled to fit before being sent to Claude |
 
@@ -145,3 +151,5 @@ uv run pytest -q          # synthetic strips + stub providers; ffmpeg required f
 ```
 
 Layout: `src/mawha_recap/stages/*` (one module per stage), `providers/` (Claude + ElevenLabs + offline stubs), `media/` (ffmpeg wrapper, pan math, subtitles), `text/alignment.py` (character alignment → words/lines), `prompts/` (versioned prompt templates). See `DESIGN.md` for the decisions behind the render graph and the idempotency model.
+
+On macOS, add `$(brew --prefix ffmpeg-full)/bin` to PATH after installing the full build, or set `FFMPEG_BINARY` and `FFPROBE_BINARY`.

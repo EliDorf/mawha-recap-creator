@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from ..pipeline import Context
 
 STAGE = "02_script"
-PROMPT_VERSION = "writer-v1"
+PROMPT_VERSION = "writer-v2"
 CODE_VERSION = "script-code-v1"
 BUDGET_STEP = 25
 MIN_CHAPTER_WORDS = 60
@@ -83,6 +83,10 @@ def script_to_dict(script: Script) -> dict[str, Any]:
             d["tts_text"] = line.tts_text
         if line.pause_after is not None:
             d["pause_after"] = line.pause_after
+        if line.framing is not None:
+            d["framing"] = line.framing
+        if line.visual_crop is not None:
+            d["visual_crop"] = list(line.visual_crop)
         lines.append(d)
     return {
         "chapter": script.chapter,
@@ -106,6 +110,21 @@ def load_script(path: Path) -> Script:
         line.setdefault("beat", "")
         line.setdefault("panel_ids", [])
     return Script.model_validate(data)
+
+
+def load_script_for_video(path: Path) -> Script:
+    """Add the independently cached opening to its owning chapter, once."""
+    script = load_script(path)
+    opening_path = path.parent / "opening.yaml"
+    from ..config import load_video_config
+
+    config_path = path.parents[2] / "config.yaml"
+    enabled = config_path.exists() and load_video_config(config_path).opening.enabled
+    if opening_path.exists() and enabled:
+        opening = load_script(opening_path)
+        if opening.chapter == script.chapter:
+            script.lines = opening.lines + script.lines
+    return script
 
 
 # ------------------------------------------------------------------ validation

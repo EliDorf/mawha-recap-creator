@@ -57,12 +57,12 @@ llm:
 
 style:
   voice_guide: |
-    Warm, steady narrator. Present tense. Plain language, no hype. Refer to characters by name.
+    Conversational storytelling to one listener. Present tense, natural contractions, varied sentence lengths. Refer to characters by name. Avoid an announcer delivery.
   # wpm / line_gap_s / loudness_lufs / pan / crossfade_s come from the variant preset; override here if needed.
   subtitles: {{burn: true}}
 
 render:
-  chapter_cards: true
+  chapter_cards: false       # continuous video; chapter tracking remains internal
   encoder: auto              # auto | libx264 | h264_videotoolbox | h264_nvenc | h264_qsv | h264_amf
   workers: 4
 
@@ -90,9 +90,9 @@ def init(
     project_dir: Annotated[Path, typer.Argument(help="Project directory to create")],
     series: Annotated[str, typer.Option(help="Series display name")] = "My Series",
     slug: Annotated[str | None, typer.Option(help="Output slug [a-z0-9_-]")] = None,
-    variant: Annotated[str, typer.Option(help="recap | sleep")] = "sleep",
-    runtime: Annotated[float, typer.Option(help="Target runtime in minutes")] = 90,
-    voice: Annotated[str, typer.Option(help="ElevenLabs voice id")] = "",
+    variant: Annotated[str, typer.Option(help="recap | sleep")] = "recap",
+    runtime: Annotated[float, typer.Option(help="Target runtime in minutes")] = 25,
+    voice: Annotated[str, typer.Option(help="ElevenLabs voice id")] = "CwhRBWXzGAHq8TQ4Fs17",
 ) -> None:
     """Create a project directory with config.yaml, input/ and a series.yaml next to it."""
     import re
@@ -121,7 +121,7 @@ def init(
 def demo(
     project_dir: Annotated[Path, typer.Argument(help="Directory to create the demo project in")],
     chapters: Annotated[int, typer.Option(help="Number of synthetic chapters")] = 3,
-    variant: Annotated[str, typer.Option(help="recap | sleep")] = "sleep",
+    variant: Annotated[str, typer.Option(help="recap | sleep")] = "recap",
 ) -> None:
     """Create a small synthetic project so the whole pipeline can be tried offline with --stub."""
     from .synthetic import write_demo_project
@@ -211,6 +211,53 @@ def approve(
 
 
 @app.command()
+def audition(
+    project_dir: Annotated[Path, typer.Argument(help="Project whose narration settings to try")],
+    voice: Annotated[str | None, typer.Option(help="Try a different ElevenLabs voice without changing config")] = None,
+    text: Annotated[str | None, typer.Option(help="Optional spoken sample, at most 800 characters")] = None,
+    stub: Annotated[bool, typer.Option(help="Offline tone for testing, not a voice audition")] = False,
+) -> None:
+    """Create a cached short voice sample before spending on the whole video."""
+    from .manifest import canonical_json, short_hash
+    from .pipeline import make_context, resolve_chapters
+    from .providers.elevenlabs import save_alignment
+    from .stages.script import load_script_for_video
+    from .text.alignment import strip_tags
+
+    ctx = make_context(project_dir, stub=stub)
+    if voice:
+        ctx.config.voice.id = voice
+    if text is None:
+        first = resolve_chapters(ctx, None)[0]
+        script = load_script_for_video(ctx.project.script_yaml(first))
+        sample_lines = []
+        for line in script.lines:
+            candidate = line.tts_text or line.text
+            if len(" ".join([*sample_lines, candidate])) > 800:
+                break
+            sample_lines.append(candidate)
+            if len(" ".join(sample_lines)) >= 300:
+                break
+        text = " ".join(sample_lines)
+    if not text or len(text) > 800:
+        raise typer.BadParameter("provide 1–800 characters with --text, or shorter script lines")
+    key = short_hash(canonical_json({"voice": ctx.config.voice.model_dump(), "text": text, "provider": ctx.tts.name}), 12)
+    directory = ctx.project.work / "auditions"
+    directory.mkdir(parents=True, exist_ok=True)
+    ext = "wav" if stub else ("mp3" if "mp3" in ctx.config.voice.output_format else "bin")
+    audio = directory / f"voice-{key}.{ext}"
+    alignment = directory / f"voice-{key}.json"
+    if not audio.exists() or not alignment.exists():
+        result = ctx.tts.synthesize(text, audio, align_text=strip_tags(text))
+        save_alignment(alignment, result, text)
+        ctx.manifest.add_cost(stage="audition", chapter="video", chars=result.chars,
+                              usd=0.0 if stub else result.chars / 1000 * ctx.config.tts.usd_per_1k_chars,
+                              provider=ctx.tts.name)
+        ctx.manifest.save()
+    console.print(f"[green]voice sample:[/] {audio}")
+
+
+@app.command()
 def status(project_dir: Annotated[Path, typer.Argument(help="Project directory")]) -> None:
     """Show the chapter x stage table, flags, approvals and cost log."""
     from .pipeline import make_context, resolve_chapters
@@ -246,6 +293,8 @@ def status(project_dir: Annotated[Path, typer.Argument(help="Project directory")
         row.append(", ".join(flags))
         table.add_row(*row)
     console.print(table)
+    opening = m.stage(None, "02_opening")
+    console.print(f"opening: {opening.get('status', 'pending')} ({opening.get('shots', 0)} shots)")
     v = m.stage(None, "05_assemble")
     console.print(f"assemble: {v.get('status', 'pending')}   total spend: ${m.total_usd():.2f}")
     b = m.budget
