@@ -6,6 +6,7 @@ single source of truth for the video, the burned subtitles and the sidecar SRT.
 
 from __future__ import annotations
 
+import re
 import wave
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
     from ..pipeline import Context
 
 STAGE = "03_tts"
-CODE_VERSION = "tts-code-v2"
+CODE_VERSION = "tts-code-v3-sustained-whisper"
 SR = 48000
 LEAD_KEEP_S = 0.15  # leading silence kept before the first word of a segment
 TAIL_KEEP_S = 0.25
@@ -69,18 +70,26 @@ def silence(seconds: float) -> np.ndarray:
 # ------------------------------------------------------------------ segmenting
 
 
-def segment_lines(lines: list[ScriptLine], max_chars: int, *, segment_on_beat: bool = True) -> list[list[ScriptLine]]:
+def segment_lines(
+    lines: list[ScriptLine], max_chars: int, *, segment_on_beat: bool = True,
+    line_texts: list[str] | None = None, separator: str = "\n\n",
+    target_chars: int | None = None,
+) -> list[list[ScriptLine]]:
     """Group consecutive lines up to max_chars; prefer to break where the beat changes."""
     groups: list[list[ScriptLine]] = []
     cur: list[ScriptLine] = []
     cur_chars = 0
-    for line in lines:
-        t = line.tts_text or line.text
-        n = len(t) + 2
+    target = min(max_chars, target_chars or max_chars)
+    texts = line_texts if line_texts is not None else [line.tts_text or line.text for line in lines]
+    for line, t in zip(lines, texts, strict=True):
+        if len(t) > max_chars:
+            raise ValueError(f"{line.id}: narration exceeds the {max_chars}-character TTS passage limit; split this script line")
+        n = len(t) + (len(separator) if cur else 0)
         beat_change = segment_on_beat and bool(cur) and line.beat != cur[-1].beat
-        if cur and (cur_chars + n > max_chars or (beat_change and cur_chars >= 0.6 * max_chars)):
+        if cur and (cur_chars + n > target or (beat_change and cur_chars >= 0.6 * target)):
             groups.append(cur)
             cur, cur_chars = [], 0
+            n = len(t)
         cur.append(line)
         cur_chars += n
     if cur:
@@ -93,7 +102,11 @@ def delivery_text(text: str, cfg: Any) -> str:
     if cfg.tts.delivery == "whisper":
         if cfg.voice.model != "eleven_v3":
             raise ValueError("whisper delivery requires voice.model: eleven_v3; use tts.delivery: neutral for other models")
-        return text if text.lstrip().startswith("[whispers]") else "[whispers] " + text
+        # A single opening tag can decay into ordinary speech in a long request.
+        # Refresh at every sentence and normalize old tags so this is idempotent.
+        text = re.sub(r"\[(?:whispers|whispering)\]\s*", "", text, flags=re.IGNORECASE).strip()
+        text = re.sub(r'''([.!?]["”’']?)\s+''', r"\1 [whispering] ", text)
+        return "[whispering] " + text
     return text
 
 
@@ -122,17 +135,18 @@ def run_chapter(ctx: Context, ch: str) -> str:
         tdir.mkdir(parents=True, exist_ok=True)
         lead_in = cfg.render.title_card_s if cfg.render.chapter_cards else 0.0
         max_chars = min(cfg.tts.max_chars, ctx.tts.max_chars())
-        delivery_overhead = len(delivery_text("", cfg))
-        groups = segment_lines(script.lines, max(1, max_chars - delivery_overhead), segment_on_beat=cfg.tts.segment_on_beat)
         separator = cfg.tts.line_separator
+        target_chars = cfg.tts.whisper_segment_chars if cfg.tts.delivery == "whisper" else max_chars
+        prepared = [delivery_text(line.tts_text or line.text, cfg) for line in script.lines]
+        groups = segment_lines(script.lines, max_chars, segment_on_beat=cfg.tts.segment_on_beat,
+                               line_texts=prepared, separator=separator, target_chars=target_chars)
         voice_key = canonical_json({"voice": cfg.voice.model_dump(), "provider": ctx.tts.name})
 
         # 1. synthesize (or reuse cached) segments
         seg_texts: list[tuple[str, list[str]]] = []
         results: list[tuple[TTSResult, CharAlignment, str, int, bool]] = []
         for group in groups:
-            texts = [line.tts_text or line.text for line in group]
-            texts[0] = delivery_text(texts[0], cfg)
+            texts = [delivery_text(line.tts_text or line.text, cfg) for line in group]
             seg_texts.append((build_segment_text(texts, sep=separator)[0], texts))
         for gi, (_group, (text, texts)) in enumerate(zip(groups, seg_texts, strict=True), start=1):
             key = short_hash(voice_key + "\n" + text, 12)

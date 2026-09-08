@@ -35,7 +35,7 @@ uv run recap doctor          # checks ffmpeg, filters, encoders, fonts, keys
 
 ## Sleep-channel production style
 
-New projects default to **Manhwa's to fall asleep to**: a 90-minute sleep video with a whispered voice, one visual story hook, no chapter cards, and connected narration passages without added per-line gaps. The sleep profile uses a quieter mix, slower pans, and softer transitions. Use `--variant recap` for a brisker version. The hook selects 3–5 shots from early story beats, including later-chapter action panels, and is reviewed alongside the script before TTS. Use `recap audition <dir>` to compare voices before a full render. See [the production workflow](docs/production-workflow.md) and [sleep profile](examples/sleep.config.yaml) for settings, review steps, and migration of existing projects.
+New projects default to **Manhwa's to fall asleep to**: a 90-minute sleep video with a whispered voice, one visual story hook, no chapter cards, and connected narration passages without added per-line gaps. The sleep profile uses Glenn’s dedicated SleepStory whisper voice, a quieter mix, slower pans, and softer transitions. Whisper directions repeat throughout short connected passages. Set `ELEVENLABS_SLEEP_VOICE_ID` to reuse another auditioned channel voice; explicit `--voice` takes priority. Use `--variant recap` for a brisker version. The hook selects 3–5 shots from early story beats, including later-chapter action panels, and is reviewed alongside the script before TTS. Use `recap audition <dir>` to compare voices before a full render. See [the production workflow](docs/production-workflow.md) and [sleep profile](examples/sleep.config.yaml) for settings, review steps, and migration of existing projects.
 
 ## Quickstart
 
