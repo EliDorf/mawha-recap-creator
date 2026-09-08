@@ -27,7 +27,8 @@ def test_audition_is_cached_and_keeps_project_voice(project_factory):
     assert (root / "config.yaml").read_bytes() == cfg
 
 
-def test_init_defaults_to_whispered_sleep_channel(tmp_path):
+def test_init_defaults_to_whispered_sleep_channel(tmp_path, monkeypatch):
+    monkeypatch.delenv("ELEVENLABS_SLEEP_VOICE_ID", raising=False)
     root = tmp_path / "new-project"
     result = CliRunner().invoke(app, ["init", str(root)])
     assert result.exit_code == 0, result.output
@@ -36,6 +37,6 @@ def test_init_defaults_to_whispered_sleep_channel(tmp_path):
     assert cfg.opening.enabled and not cfg.render.chapter_cards
     assert cfg.style.line_gap_s == 0
     assert cfg.tts.line_separator == " " and not cfg.tts.segment_on_beat
-    assert cfg.voice.id
+    assert cfg.voice.id == "80POrI92mU3QZbdwHl4r"
     assert cfg.tts.delivery == "whisper"
     assert cfg.channel.tagline == "Manhwa's to fall asleep to"

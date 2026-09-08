@@ -5,7 +5,7 @@ target_runtime_min: 90
 channel:
   tagline: "Manhwa's to fall asleep to"
 voice:
-  id: CwhRBWXzGAHq8TQ4Fs17  # Roger; audition before long generations
+  id: 80POrI92mU3QZbdwHl4r  # Glenn — SleepStory, Whisper & Gravely Soft
   model: eleven_v3
   settings: {stability: 0.5}
 opening: {enabled: true, target_words: 40, max_source_chapters: 3, max_panels: 24}
@@ -24,6 +24,7 @@ style:
 tts:
   delivery: whisper
   max_chars: 4500
+  whisper_segment_chars: 700
   segment_on_beat: false
   line_separator: " "
   chapter_tail_s: 0.6

@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from . import __version__
+from .config import SLEEP_VOICE_ID
 from .manifest import ALL_STAGES, Manifest
 
 app = typer.Typer(
@@ -95,10 +96,14 @@ def init(
     slug: Annotated[str | None, typer.Option(help="Output slug [a-z0-9_-]")] = None,
     variant: Annotated[str, typer.Option(help="recap | sleep")] = "sleep",
     runtime: Annotated[float, typer.Option(help="Target runtime in minutes")] = 90,
-    voice: Annotated[str, typer.Option(help="ElevenLabs voice id")] = "CwhRBWXzGAHq8TQ4Fs17",
+    voice: Annotated[str | None, typer.Option(help="ElevenLabs voice id; overrides the saved channel voice")] = None,
 ) -> None:
     """Create a project directory with config.yaml, input/ and a series.yaml next to it."""
+    import os
     import re
+
+    default_voice = (os.environ.get("ELEVENLABS_SLEEP_VOICE_ID") or SLEEP_VOICE_ID) if variant == "sleep" else "CwhRBWXzGAHq8TQ4Fs17"
+    voice = voice or default_voice
 
     project_dir = project_dir.resolve()
     if slug is None:

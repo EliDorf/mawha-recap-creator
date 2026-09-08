@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 Variant = Literal["recap", "sleep"]
 
 ID_RE = re.compile(r"^[a-z0-9_-]+$")
+SLEEP_VOICE_ID = "80POrI92mU3QZbdwHl4r"  # Glenn — SleepStory, Whisper & Gravely Soft
 
 
 # --------------------------------------------------------------------------- sub-models
@@ -107,6 +108,7 @@ class StyleConfig(BaseModel):
 class TTSConfig(BaseModel):
     delivery: Literal["neutral", "whisper"] = "neutral"
     max_chars: int = 4500
+    whisper_segment_chars: int = Field(default=700, ge=100, le=4500)
     segment_on_beat: bool = False
     line_separator: str = " "
     tempo: float = 1.0  # <1 slows the assembled VO (atempo); alignment times are rescaled
@@ -304,6 +306,7 @@ PRESETS: dict[str, dict[str, Any]] = {
         "package": {"title_template": "{series} Chapters {first}-{last} | Full Recap"},
     },
     "sleep": {
+        "voice": {"id": SLEEP_VOICE_ID},
         "opening": {"enabled": True},
         "tts": {"delivery": "whisper", "segment_on_beat": False, "line_separator": " ", "chapter_tail_s": 0.6},
         "style": {
