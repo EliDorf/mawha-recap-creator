@@ -39,6 +39,8 @@ New projects default to **Manhwa's to fall asleep to**: a 90-minute sleep video 
 
 ## Quickstart
 
+For complete chapter downloads of your own manhwa, use the [Chrome chapter downloader](tools/chapter-downloader/README.md). It has a chapter range, live page counts, stop/resume, and numbered folders that can be copied directly into a video's `input/` directory.
+
 ```bash
 recap init projects/solo-leveling/ch012-045-sleep --series "Solo Leveling" --variant sleep --runtime 90 --voice <elevenlabs voice id>
 # drop chapter images into projects/solo-leveling/ch012-045-sleep/input/

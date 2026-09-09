@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Manhwa Chapter Downloader</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <header><span class="eyebrow">MANHWA'S TO FALL ASLEEP TO</span><h1>Save complete chapters</h1><p>Download your own manhwa, ready for the video workflow.</p></header>
+  <form id="form">
+    <label for="url">Starting chapter URL</label><input id="url" type="url" required placeholder="https://comix.to/title/…/…-chapter-1">
+    <label for="end">Last chapter</label><input id="end" type="number" min="1" placeholder="Leave empty to continue to the end" value="10">
+    <button type="submit" id="start">Start download</button>
+  </form>
+  <section aria-live="polite"><div class="status-line"><strong id="status">Ready</strong><span id="count"></span></div><progress id="progress" value="0" max="1"></progress><p id="detail">Pages will be saved in Downloads / Manhwa Downloads.</p></section>
+  <div class="actions"><button id="stop" type="button">Stop</button><button id="resume" type="button">Resume</button><button id="show" type="button">Open folder</button></div>
+  <p class="note">Keep the reader tab open. The extension scrolls each page into view and waits for it to finish loading. You can close this popup.</p>
+  <script src="popup.js" type="module"></script>
+</body></html>
