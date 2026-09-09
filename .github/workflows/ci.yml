@@ -9,6 +9,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  downloader:
+    if: github.event_name == 'pull_request' || github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: node --test tools/chapter-downloader/core.test.mjs
+      - run: uv run --with playwright python -m playwright install --with-deps chromium
+      - run: uv run --with playwright python tools/chapter-downloader/verify_browser.py
   test:
     if: github.event_name == 'pull_request' || github.ref_name == github.event.repository.default_branch
     runs-on: ${{ matrix.os }}

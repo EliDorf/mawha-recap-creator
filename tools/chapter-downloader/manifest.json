@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Manhwa Chapter Downloader",
+  "version": "1.0.0",
+  "description": "Save complete chapters of your own manhwa into numbered video-pipeline folders.",
+  "permissions": ["downloads", "storage", "activeTab"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "action": {"default_popup": "popup.html", "default_title": "Manhwa Chapter Downloader"},
+  "content_scripts": [{
+    "matches": ["https://comix.to/title/*", "https://www.comix.to/title/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}
